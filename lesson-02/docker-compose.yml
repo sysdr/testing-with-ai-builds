@@ -1,0 +1,47 @@
+name: qatp-lesson-02
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: qatp
+      POSTGRES_PASSWORD: qatp
+      POSTGRES_DB: qatp
+    healthcheck:
+      # pg_isready succeeds only once Postgres accepts connections,
+      # which is several seconds after the container reports "running"
+      test: ["CMD-SHELL", "pg_isready -U qatp -d qatp"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Hostnames are compose service names, not localhost
+      DATABASE_URL: postgresql://qatp:qatp@db:5432/qatp
+      REDIS_URL: redis://redis:6379/0
+      # Local-only signing key; later modules scan for exactly this kind of default
+      JWT_SECRET: dev-only-change-me
+    depends_on:
+      # service_healthy waits for the healthchecks above, not just container start
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # urlopen raises on 503, so "healthy" means both dependencies answered
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
