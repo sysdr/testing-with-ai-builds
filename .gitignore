@@ -1,0 +1,3 @@
+# Lesson 1 bootstrap stays local; only qatp-app is committed
+lesson-01/setup.sh
+lesson-01/cleanup.sh
