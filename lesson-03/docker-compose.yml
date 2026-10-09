@@ -1,0 +1,71 @@
+name: qatp-lesson-03
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: qatp
+      POSTGRES_PASSWORD: qatp
+      POSTGRES_DB: qatp
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qatp -d qatp"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Host Ollama (Windows) — skip the in-compose ollama/ollama-pull services
+  # Reachable from containers as LAPTOP-RVRF49B4 / 192.168.1.13:11434
+
+  chroma:
+    image: chromadb/chroma:0.5.23
+    ports:
+      # Host 8001 because the API already owns 8000
+      - "8001:8000"
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - chroma-data:/chroma/chroma
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://qatp:qatp@db:5432/qatp
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: dev-only-change-me
+      # LAN IP of LAPTOP-RVRF49B4 — Docker's embedded DNS cannot resolve that Windows hostname
+      OLLAMA_URL: http://192.168.1.13:11434
+      CHAT_MODEL: llama3.2:3b
+      EMBED_MODEL: nomic-embed-text
+      CHROMA_HOST: chroma
+      CHROMA_PORT: "8000"
+      # Ollama unloads an idle model after 5 minutes by default; the next request then pays the load time
+      OLLAMA_KEEP_ALIVE: 30m
+    volumes:
+      # The chat log is written here so you can read it from the host
+      - ./reports:/app/reports
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  chroma-data:

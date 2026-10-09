@@ -1,0 +1,1 @@
+{"ready":true,"ollama":"connected","chroma":"connected","models_present":["llama3.1:8b","llama3.2:1b","llama3.2:3b","my-coder:latest","nomic-embed-text:latest","qwen2.5-coder:7b","qwen3:4b","qwen3:8b"],"models_missing":[],"indexed":5}
