@@ -1,0 +1,22 @@
+name: qatp-lesson-04
+
+services:
+  tests:
+    build: .
+    environment:
+      # Reach lesson-03 api via its compose service name on the shared network
+      BASE_URL: http://api:8000
+    volumes:
+      - ./reports:/app/reports
+    networks:
+      - qatp
+    # One-shot: exit after pytest finishes (pipefail keeps pytest's status through tee)
+    command:
+      - sh
+      - -c
+      - set -o pipefail; pytest tests/ -v --tb=short 2>&1 | tee reports/last-run.txt
+
+networks:
+  qatp:
+    external: true
+    name: qatp-lesson-03_default

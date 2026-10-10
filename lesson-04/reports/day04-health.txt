@@ -1,0 +1,1 @@
+lesson-04/setup.sh: line 352: pytest: command not found
