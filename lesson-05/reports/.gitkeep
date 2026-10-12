@@ -1,0 +1,1 @@
+# keeps reports/ in git; CI and make test write junit.xml here

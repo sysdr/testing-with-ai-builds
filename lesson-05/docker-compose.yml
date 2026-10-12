@@ -1,0 +1,25 @@
+# Local twin of the CI service containers: same images, same credentials, same health checks.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: qatp
+      POSTGRES_PASSWORD: qatp
+      POSTGRES_DB: qatp
+    ports:
+      - "5432:5432"
+    healthcheck:
+      # `docker compose up --wait` blocks until this passes
+      test: ["CMD-SHELL", "pg_isready -U qatp -d qatp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

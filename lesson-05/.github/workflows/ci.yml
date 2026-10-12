@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel a superseded run when you push again to the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read   # least privilege: the job only reads the repo
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10   # a hung service must not burn runner minutes forever
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: qatp
+          POSTGRES_PASSWORD: qatp
+          POSTGRES_DB: qatp
+        ports:
+          - 5432:5432   # job runs on the VM, so reach it at localhost:5432
+        options: >-
+          --health-cmd "pg_isready -U qatp -d qatp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://qatp:qatp@localhost:5432/qatp
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip   # keys the cache on requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run pytest
+        run: |
+          mkdir -p reports
+          pytest --junitxml=reports/junit.xml
+      - name: Enforce test floor
+        run: python scripts/check_junit.py reports/junit.xml --min-tests 6
+      - name: Upload JUnit report
+        if: always()   # keep the report even when tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: reports/junit.xml
